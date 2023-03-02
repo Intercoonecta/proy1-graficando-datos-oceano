@@ -1,5 +1,5 @@
-#Golfo San Jorge, Argentina
-#Temperatura, salinidad y clorofila superficial
+#Patagonia Argentina
+#Temperatura superficial del mar 2017
 
 library(tidyverse)
 library(rerddap)
@@ -36,10 +36,10 @@ SST <- ed_search_adv(query = "SST",
                               protocol = "griddap",
                               url = coastwatch_url,
                               keywords = "monthly",
-                              maxLat = -41,
-                              minLat = -47,
-                              maxLon = -60,
-                              minLon = -67,
+                              maxLat = -40,
+                              minLat = -58,
+                              maxLon = -57,
+                              minLon = -69,
                               minTime = "2017",
                               maxTime = "2022")
 
@@ -49,19 +49,28 @@ info(SST$info$dataset_id[2])
 info(SST$info$dataset_id[3])
 info(SST$info$dataset_id[4])
 
-SST_GSJ <- griddap(SST$info$dataset_id[1], 
-                   time = c("2017-01-01", "2022-09-16"),
-                   latitude = c(-47, -41),
-                   longitude = c(-67, -60),
+SST_PATAR <- griddap(SST$info$dataset_id[1], 
+                   time = c("2017-01-01", "2017-12-31"),
+                   latitude = c(-58, -40),
+                   longitude = c(-69, -57),
                    fmt = "nc",
-                   store = disk(path = "Documentos/"))
+                   store = disk(path = "Documentos_Euge/"))
 
-archivo <- list.files("Documentos", pattern = ".nc", full.names = T )
+archivo <- list.files("Documentos_Euge", pattern = ".nc", full.names = T )
 archivo
 
 #EMPEZAMOS A GRAFICAR
 
-SST_GSJ <- raster(archivo)
-SST_GSJ
+SST_PATAR <- raster(archivo)
+SST_PATAR
+raster::plot(SST_PATAR[[1]], col = RColorBrewer:: brewer.pal(9, "Reds"))
+#Grafiqué la primera banda de SST_PATAR (Tiene 12 por los 12 meses del 2017)
 
-raster::plot(SST_GSJ[[1]], col=)
+#Ahora calculo el promedio anual para toda la zona y luego lo grafico
+SST_PATAR_ANUAL <- raster::mean(SST_PATAR, 12)
+raster::plot(SST_PATAR_ANUAL, col = RColorBrewer:: brewer.pal(9, "PuRd"))
+SST_PATAR_ANUAL
+
+SST_PATAR$summary
+SST_PATAR$data
+
