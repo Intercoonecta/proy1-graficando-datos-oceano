@@ -47,7 +47,7 @@ copernicus_download_motu(
 
 ### PART II---------------------------------------------------------------------
 # import single file 
-ncfile <- list.files("datos_greta", full.names = T)
+ncfile <- list.files("datos_greta", full.names = T, pattern = ".nc")
 sst_single <- raster(ncfile)
 # print file summary
 sst_single
