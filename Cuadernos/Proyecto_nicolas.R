@@ -1,70 +1,107 @@
-# Cargar paquetes
+#Instalar programas de ser necesario
+install.packages("rgbif")
+install.packages("dplyr")
+
+#Llamar librerias
 library(rgbif)
-library(plyr)
-library(ggplot2)
-library(lubridate)
-library(leaflet)
-
-# Filtrar por nombre científicos de las tortugas marinas
-taxon_name <- c("Caretta caretta", "Chelonia mydas", "Dermochelys coriacea", "Eretmochelys imbricata", "Lepidochelys olivacea")
-
-# Definir los límites geográficos del Mar Caribe
-bounding_box <- c(-96.80, 5.50, -58.50, 25.90)
-
-# Definir el periodo de tiempo
-start_date <- "1990-01-01"
-end_date <- "2023-01-01"
-
-# Descargar los datos de GBIF y covnertir a objetos JSON  
-occ_list <- occ_search(
-  scientificName = taxon_name,
-  geometry = bounding_box,
-  hasCoordinate = TRUE,
-  eventDate = paste0(start_date, ",", end_date),
-  limit = 1000
-)
-summary(occ_list)
-str(occ_list)
-names(occ_list)
-# Convertir la lista de objetos JSON a un data.frame
-occurrences <- ldply(occ_list, data.frame)
-
-# Crear un gráfico que diferencie las especies y su cambio en el tiempo
-ggplot(occurrences, aes(x = year(eventDate), fill = scientificName)) +
-  geom_histogram(binwidth = 1, position = "dodge") +
-  labs(x = "Año", y = "Número de ocurrencias", title = "Ocurrencias de tortugas marinas en el Mar Caribe") +
-  scale_fill_manual(values = c("orange", "green", "blue", "violet", "red"), name = "Especies", labels = c("Caretta caretta", "Chelonia mydas", "Dermochelys coriacea", "Eretmochelys imbricata", "Lepidochelys olivacea"))
-
-
-install.packages("leaflet")
-# Cargar librerías necesarias
-library(leaflet)
 library(dplyr)
+library(ggplot2)
+library(ggmap)
 
-# Leer datos de GBIF
-occ <- occ_search(
-  scientificName = "Cheloniidae",
-  geometry = "-92,9.5,-59.5,25",
-  hasCoordinate = TRUE,
-  limit = 10000
+bbox <- c(-98.13, 7.23, -55.81, 28.77) # Coordenadas del mar Caribe en  --> área de interés
+
+turtles <- occ_search(
+  scientificName = "Cheloniidae", # tortugas marinas 5 spp.
+  hasCoordinate = TRUE, # Filtrar sólo registros con coordenadas válidas
+  geometry = bbox, # mar Caribe
+  year = "2000,2023", # periodo de interés
+  limit = 50000 # Límite máx. permitido por OBIS-SEAMAP
 )
 
-# Convertir a un data frame
-occ_df <- occ2df(occ)
+# Selección de las columnas de interés y renombramiento
+turtles <- turtles$data %>%
+  select(
+    gbifID, 
+    species, 
+    eventDate, 
+    decimalLatitude, 
+    decimalLongitude 
+  ) %>%
+  rename(
+    id = gbifID,
+    especie = species,
+    fecha = eventDate,
+    latitud = decimalLatitude,
+    longitud = decimalLongitude
+  )
+# Conteodel número de registros para cada sp.
+turtles_counts <- turtles %>%
+  count(especie, sort  = TRUE)
 
-# Seleccionar registros a partir de 1900
-occ_df <- occurrences %>% filter(year(eventDate) >= 1900)
+#Histograma de barras que muestra la abundancia de cada especie
+ggplot(turtles_counts, aes(x = especie, y = n)) +
+  geom_bar(stat = "identity") +
+  xlab("Especie") +
+  ylab("Número de registros") +
+  ggtitle("Abundancia de tortugas marinas en el Caribe desde el año 2000")
 
-# Crear mapa
-map <- leaflet() %>%
+# No. registros para  sp. y año
+turtles_counts_year <- turtles %>%
+  mutate(anio = format(as.Date(fecha), "%Y")) %>%
+  count(especie, anio, sort = TRUE)
+
+# Abundancia total por año de cada especie en el tiempo
+ggplot(turtles_counts_year, aes(x = anio, y = n, color = especie, group = especie)) +
+  geom_line(linewidth = 1) +
+  xlab("Año") +
+  ylab("Número de registros") +
+  ggtitle("Abundancia total de tortugas marinas en el mar Caribe (2000-2022)")
+
+# Descarga del mapa de Googlemaps
+map_BN <- get_map(location = bbox, maptype = "toner-lite", zoom = 6)
+
+# Mapa con todos los registros en B/N
+ggmap(map_BN) +
+  geom_point(data = turtles, aes(x = longitud, y = latitud), alpha = 0.5) +
+  xlab("Longitud") +
+  ylab("Latitud") +
+  ggtitle("Registros de tortugas marinas en el Caribe (2000-2023)")
+
+# Descarga del mapa de registro a CLR
+map_CL <- ggmap(get_map(location = bbox, maptype = "toner-lite"))
+
+#Mapa de registros dif. por colores
+map_CL +
+  geom_point(data = turtles, aes(x = longitud, y = latitud, color = especie)) +
+  scale_color_manual(values = c("black", "blue", "red", "orange", "purple", "green")) +
+  xlab("Longitud") +
+  ylab("Latitud") +
+  ggtitle("Tortugas marinas en el mar Caribe (2000-2023)")
+
+
+
+
+
+
+####interactivo
+library(leaflet)
+
+# No. registros para cada especie y ubicación
+turtles_counts_loc <- turtles %>%
+  group_by(especie, latitud, longitud) %>%
+  summarize(n = n())
+
+map <- leaflet(turtles_counts_loc) %>%
   addTiles() %>%
-  addMarkers(data = occ_df,
-             ~decimalLongitude, ~decimalLatitude)#,
-#popup = paste("Especie: ", scientificName, "<br>",
-# "Fecha: ", eventDate, "<br>",
-#  "País: ", country, "<br>",
-# "Proyecto: ", datasetName))
-
-# Visualizar mapa
-map
-
+  addMarkers(
+    lat = ~latitud,
+    lng = ~longitud,
+    popup = ~paste("<strong>Especie:</strong> ", especie, "<br>",
+                   "<strong>Registros:</strong> ", n, "<br>")
+  ) %>%
+  addLegend(
+    title = "Especies",
+    colors = unique(turtles_counts_loc$especie),
+    labels = unique(turtles_counts_loc$especie),
+    position = "bottomleft"
+  )
