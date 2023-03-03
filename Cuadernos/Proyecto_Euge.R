@@ -71,6 +71,26 @@ SST_PATAR_ANUAL <- raster::mean(SST_PATAR, 12)
 raster::plot(SST_PATAR_ANUAL, col = RColorBrewer:: brewer.pal(9, "PuRd"))
 SST_PATAR_ANUAL
 
-SST_PATAR$summary
-SST_PATAR$data
+SST_PATAR$data #Veo los datos de mi archivo
 
+#Calculo el promedio durante abril 2017 (Época de grandes inundaciones en CR) 
+SST_PATAR_ABRIL17 <- SST_PATAR$data %>% 
+ filter(lubridate::month(time) == 4) %>% 
+  group_by(latitude, longitude) %>% 
+  summarise(SST_Abril = mean(sst, na.rm = T))
+
+head(SST_PATAR_ABRIL17) #Veo la tabla con los datos y la nueva columna de SST_Abril
+
+#Capa de continentes
+tierra <- rnaturalearth::ne_countries(returnclass = "sf")
+
+#Graficamos SST_PATAR_ABRIL17
+SST_PATAR_ABRIL17 %>% 
+  ggplot(aes(x = longitude, y = latitude))+
+  geom_contour_filled(aes(z = SST_Abril), binwidth = 2.0)+
+  scale_fill_brewer(palette = "PuRd")+
+  geom_sf(data = tierra, inherit.aes = F)+
+  lims(x = c(-75, -50), y = c(-60, -40))+
+  theme_bw()
+
+#FIN
