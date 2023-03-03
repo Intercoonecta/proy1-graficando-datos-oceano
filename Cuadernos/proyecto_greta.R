@@ -10,7 +10,6 @@
 # load packages
 library(CopernicusMarine)
 library(tidyverse)
-library(raster)
 
 # check out products list
 x <- copernicus_products_list()
@@ -45,6 +44,8 @@ copernicus_download_motu(
 
 
 ### PART II-----IMPORT, PLOT AND CALCULATE ANUAL AVERAGE------------------------
+library(raster)
+library(rasterVis)
 # import single file 
 ncfile <- list.files("datos_greta", full.names = T, pattern = ".nc")
 swt_single <- raster(ncfile)
@@ -65,7 +66,6 @@ swt_multi <- swt_multi %>% setZ(dates, name = "Date") %>% setNames(dates) # chan
 # check 
 swt_multi
 # plot brick
-library("rasterVis")
 levelplot(swt_multi) 
 
 
@@ -85,7 +85,6 @@ library(ggplot2)
 
 # import MPA limits - Corredor de Migración de Cetáceos del Mediterráneo (COMICET)
 mpa <- readOGR("C:/Users/greta/OneDrive - Universitat de Valencia/Documentos/Courses/HACKATON/proy1-graficando-datos-oceano/datos_greta/COMICET_PA.gpkg") 
-plot(mpa)
 # import countries layer from Natural Earth 
 countries <- ne_countries(scale = "medium", returnclass = "sf")
 
