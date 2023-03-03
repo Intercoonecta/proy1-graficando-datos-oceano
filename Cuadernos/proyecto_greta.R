@@ -5,9 +5,8 @@
 # This script downloads and visualizes Sea Surface Temperature (SST) model data.
 #-------------------------------------------------------------------------------
 # Output provides annual average SST for western Mediterranean region in 2022. 
-#setwd("C:/Users/greta/OneDrive - Universitat de Valencia/Documentos/Courses/HACKATON/proy1-graficando-datos-oceano/")
 
-### PART I----------------------------------------------------------------------
+### PART I-----DOWNLOAD DATA----------------------------------------------------
 # load packages
 library(CopernicusMarine)
 library(tidyverse)
@@ -32,7 +31,7 @@ pr_info <- copernicus_product_details(my_product) # find layer
 # download
 copernicus_download_motu(
   username = "gjankauskaite",
-  password = "Jnkskt@97",
+  password = "",
   destination   = "datos_greta", # folder created previously
   product       = my_product,
   layer         = "cmems_mod_med_phy-tem_anfc_4.2km_P1M-m", # monthly data
@@ -45,7 +44,7 @@ copernicus_download_motu(
 )
 
 
-### PART II---------------------------------------------------------------------
+### PART II-----IMPORT, PLOT AND CALCULATE ANUAL AVERAGE------------------------
 # import single file 
 ncfile <- list.files("datos_greta", full.names = T, pattern = ".nc")
 sst_single <- raster(ncfile)
@@ -54,34 +53,44 @@ sst_single
 # plot
 plot(sst_single)
 
-library("rasterVis")
+
 # import multi-band NetCDF file
 sst_multi <- raster::brick(ncfile) # or "stack()"
 # print a summary of the brick
 sst_multi
+# fix brick dates
+dates <- getZ(sst_multi)
+dates <- as.Date((dates/1440), origin = "1900-01-01")
+sst_multi <- sst_multi %>% setZ(dates, name = "Date") %>% setNames(dates) # change random numbers to dates
+# check 
+sst_multi
 # plot brick
-levelplot(sst_multi) #!!!! no se porque en vez de fechas tiene esos nombres raros, lo mismo con "monthly
+library("rasterVis")
+levelplot(sst_multi) 
 
-# calculate and plot average and SD
+
+# Calculate and plot average and SD
 sst_mean <- calc(sst_multi, fun = mean)
 sst_sd <- calc(sst_multi, fun = sd)
 plot(sst_mean, main = "Average SST")
 plot(sst_sd, main = "Standard deviation SST")
 
 
-### PART III--------------------------------------------------------------------
+## PART III-----PLOT WITH GGPLOT2-----------------------------------------------
 # Prepare data for plotting with ggplot2 package
 library(rgdal)
 library(rnaturalearth)
 library(ggplot2)
+
 # import MPA limits - Corredor de Migración de Cetáceos del Mediterráneo (COMICET)
-mpa <- readOGR("Comicet_PA.gpkg") # no me acuerdo donde descargué este file
+mpa <- readOGR("C:/Users/greta/OneDrive - Universitat de Valencia/Documentos/Courses/HACKATON/proy1-graficando-datos-oceano/datos_greta/COMICET_PA.gpkg") 
 plot(mpa)
-# import countries layer from Natural Earth
+# import countries layer from Natural Earth 
 countries <- ne_countries(scale = "medium", returnclass = "sf")
+
+
 # convert raster to data.frame
 sst_df <- as.data.frame(sst_mean, xy=TRUE, na.rm=TRUE)
-
 # plot
 ggplot()+
   # add raster layer
@@ -103,7 +112,7 @@ ggplot()+
   theme_bw() 
 
 
-# Plot with leaflet package
+# plot with leaflet package
 library(leaflet)
 # create color palette for CMEMS maps
 palRaster <- colorNumeric("Spectral", domain = sst_mean@data@values, reverse = TRUE, na.color = "transparent")
@@ -119,28 +128,15 @@ leaflet(mpa) %>%
   addPolygons(color = "blue")
 
 
-### PART IV---------------------------------------------------------------------
-# Zonal statistics - extract raster values from MPA 
+### PART IV-----ZONAL STATISTICS EXTRACT MPA VALUES-----------------------------
 # mean
 mpa_sst_avg <- raster::extract(sst_multi, mpa, fun=mean, na.rm=T)
-# standard deviation
+# sd
 mpa_sst_sd <- extract(sst_multi, mpa, fun=sd, na.rm=T)
 
-# get date with lubridate
-library(lubridate)
-date_sst <- sst_multi %>%
-  # get time stamps from multi raster
-  getZ() %>%
-  # parse to POSIXct class (time)
-  parse_date_time("Ymd HMS") %>%
-  # get the first day of each month
-  floor_date("month")
 
-# generate df with three new columns (time, mean, sd)
-mpa_sst <- data.frame(date = date_sst, sst_avg = c(mpa_sst_avg), sst_sd = c(mpa_sst_sd))
-# check df
-mpa_sst
-
+# convert to df
+mpa_sst <- data.frame(date = dates, sst_avg = c(mpa_sst_avg), sst_sd = c(mpa_sst_sd)) %>% print()
 # plot data
 ggplot(mpa_sst, aes(x = date)) +
   # add ribbon to represent mean +- SD
@@ -148,14 +144,13 @@ ggplot(mpa_sst, aes(x = date)) +
   # add line to represent mean value
   geom_line(aes(y = sst_avg), size = 1, color="steelblue") +
   # define frequency of x-axis and date labels
-  scale_x_datetime(date_breaks = "1 month", date_labels = "%b") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") + # originally was "scale_x_datetime"
   # plot labels labels
-  labs(title = "Sea Surface Temperature (SST) in Galapagos Islands MPA",
+  labs(title = "Sea Surface Temperature (SST) in Cetacean Migration Corridor MPA",
        # note we use `expression()` to add +- symbol
-       subtitle = expression(Monthly~values~(mean %+-% SD)~from~2020),
+       subtitle = expression(Monthly~values~(mean %+-% SD)~from~2022),
        x = "",
        y = "SST (ºC)") +
   # theme
   theme_bw() 
-
 
