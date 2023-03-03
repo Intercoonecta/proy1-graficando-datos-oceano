@@ -92,3 +92,5 @@ SST_PATAR_ABRIL17 %>%
   geom_sf(data = tierra, inherit.aes = F)+
   lims(x = c(-75, -50), y = c(-60, -40))+
   theme_bw()
+
+#FIN
