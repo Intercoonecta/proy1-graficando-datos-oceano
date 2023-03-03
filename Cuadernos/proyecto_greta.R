@@ -137,7 +137,7 @@ mpa_swt_sd <- extract(swt_multi, mpa, fun=sd, na.rm=T)
 
 
 # convert to df
-mpa_swt <- data.frame(date = dates, swt_avg = c(mpa_sst_avg), swt_sd = c(mpa_swt_sd)) %>% print()
+mpa_swt <- data.frame(date = dates, swt_avg = c(mpa_swt_avg), swt_sd = c(mpa_swt_sd)) %>% print()
 # plot data
 ggplot(mpa_swt, aes(x = date)) +
   # add ribbon to represent mean +- SD
