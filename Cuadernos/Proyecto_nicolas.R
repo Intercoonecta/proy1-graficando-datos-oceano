@@ -7,6 +7,7 @@ library(rgbif)
 library(dplyr)
 library(ggplot2)
 library(ggmap)
+library(stringr)
 
 bbox <- c(-98.13, 7.23, -55.81, 28.77) # Coordenadas del mar Caribe en  --> área de interés
 
@@ -37,13 +38,16 @@ turtles <- turtles$data %>%
 # Conteodel número de registros para cada sp.
 turtles_counts <- turtles %>%
   count(especie, sort  = TRUE)
+# nombres en dos líneas
+turtles_counts$especie_wrap <- str_wrap(turtles_counts$especie, width = 15)
 
 #Histograma de barras que muestra la abundancia de cada especie
-ggplot(turtles_counts, aes(x = especie, y = n)) +
+ggplot(turtles_counts, aes(x = especie_wrap, y = n)) +
   geom_bar(stat = "identity") +
   xlab("Especie") +
   ylab("Número de registros") +
-  ggtitle("Abundancia de tortugas marinas en el Caribe desde el año 2000")
+  ggtitle("Abundancia de tortugas marinas en el mar Caribe desde el 2000") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, face = "italic"))
 
 # No. registros para  sp. y año
 turtles_counts_year <- turtles %>%
@@ -55,10 +59,22 @@ ggplot(turtles_counts_year, aes(x = anio, y = n, color = especie, group = especi
   geom_line(linewidth = 1) +
   xlab("Año") +
   ylab("Número de registros") +
-  ggtitle("Abundancia total de tortugas marinas en el mar Caribe (2000-2022)")
+  ggtitle("Abundancia total de tortugas marinas en el mar Caribe (2000-2022)") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5),
+        axis.text.y = element_text(face = "italic")) +
+  scale_color_discrete(labels = expression(italic("C. agassizii"), 
+                                           italic("C. caretta"), 
+                                           italic("C. coriacea"), 
+                                           italic("C. depressa"), 
+                                           italic("C. mydas"), 
+                                           italic("D. coriacea"), 
+                                           italic("E. imbricata"), 
+                                           italic("L. kempii"), 
+                                           italic("L. olivacea")))
 
 # Descarga del mapa de Googlemaps
-map_BN <- get_map(location = bbox, maptype = "toner-lite", zoom = 6)
+bbox2 <- c(left = -85, bottom = 5, right = -60, top = 25)
+map_BN <- get_map(location = bbox2, maptype = "toner-lite", zoom = 6)
 
 # Mapa con todos los registros en B/N
 ggmap(map_BN) +
@@ -73,10 +89,17 @@ map_CL <- ggmap(get_map(location = bbox, maptype = "toner-lite"))
 #Mapa de registros dif. por colores
 map_CL +
   geom_point(data = turtles, aes(x = longitud, y = latitud, color = especie)) +
-  scale_color_manual(values = c("black", "blue", "red", "orange", "purple", "green")) +
+  scale_color_manual(values = c("black", "blue", "red", "orange", "purple", "green"),
+                     labels = c(expression(italic("Chelonia mydas")),
+                                expression(italic("Eretmochelys imbricata")),
+                                expression(italic("Caretta caretta")),
+                                expression(italic("Dermochelys coriacea")),
+                                expression(italic("Lepidochelys olivacea")),
+                                expression(italic("Natator depressus")))) +
   xlab("Longitud") +
   ylab("Latitud") +
-  ggtitle("Tortugas marinas en el mar Caribe (2000-2023)")
+  ggtitle("Tortugas marinas en el mar Caribe (2000-2023)") +
+  theme(legend.text = element_text(face = "italic"))
 
 
 
