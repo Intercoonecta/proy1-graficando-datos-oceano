@@ -71,6 +71,14 @@ SST_PATAR_ANUAL <- raster::mean(SST_PATAR, 12)
 raster::plot(SST_PATAR_ANUAL, col = RColorBrewer:: brewer.pal(9, "PuRd"))
 SST_PATAR_ANUAL
 
+SST_PATAR <- griddap(SST$info$dataset_id[1], 
+                     time = c("2017-01-01", "2017-12-31"),
+                     latitude = c(-58, -40),
+                     longitude = c(-69, -57),
+                     fmt = "nc",
+                     store = disk(path = "Documentos_Euge/"))
+
+
 SST_PATAR$data #Veo los datos de mi archivo
 
 #Calculo el promedio durante abril 2017 (Época de grandes inundaciones en CR) 
