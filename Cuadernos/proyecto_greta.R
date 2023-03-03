@@ -2,7 +2,7 @@
 #-------------------------------------------------------------------------------
 # proyecto_greta.R      DOWNLOADING COPERNICUS MARINE SERVICE DATA
 #-------------------------------------------------------------------------------
-# This script downloads and visualizes Sea Surface Temperature (SST) model data.
+# This script downloads and visualizes Sea water potential temperature (T) data.
 #-------------------------------------------------------------------------------
 # Output provides annual average SST for western Mediterranean region in 2022. 
 
@@ -19,14 +19,14 @@ x <- copernicus_products_list()
 selection <- filter(x, str_detect(str_to_lower(mainVariables), "temp")) %>% 
   filter(str_detect(tempResolutions, "Monthly")) %>% filter(str_detect(areas, "Mediterranean Sea"))
 
-# check variable list "MEDSEA_ANALYSISFORECAST_PHY_006_013" product
+# check variable list of "MEDSEA_ANALYSISFORECAST_PHY_006_013" product
 selection$mainVariables[1]
 
 # select product of interest
 my_product <- selection$product_id[1]
 
 # check product details for layer info
-pr_info <- copernicus_product_details(my_product) # find layer 
+pr_info <- copernicus_product_details(my_product) # pick a layer and copy
 
 # download
 copernicus_download_motu(
@@ -47,33 +47,34 @@ copernicus_download_motu(
 ### PART II-----IMPORT, PLOT AND CALCULATE ANUAL AVERAGE------------------------
 # import single file 
 ncfile <- list.files("datos_greta", full.names = T, pattern = ".nc")
-sst_single <- raster(ncfile)
+swt_single <- raster(ncfile)
 # print file summary
-sst_single
+swt_single
 # plot
-plot(sst_single)
+plot(swt_single)
 
 
 # import multi-band NetCDF file
-sst_multi <- raster::brick(ncfile) # or "stack()"
+swt_multi <- raster::brick(ncfile)
 # print a summary of the brick
-sst_multi
+swt_multi
 # fix brick dates
-dates <- getZ(sst_multi)
+dates <- getZ(swt_multi)
 dates <- as.Date((dates/1440), origin = "1900-01-01")
-sst_multi <- sst_multi %>% setZ(dates, name = "Date") %>% setNames(dates) # change random numbers to dates
+swt_multi <- swt_multi %>% setZ(dates, name = "Date") %>% setNames(dates) # change random numbers to dates
 # check 
-sst_multi
+swt_multi
 # plot brick
 library("rasterVis")
-levelplot(sst_multi) 
+levelplot(swt_multi) 
+
 
 
 # Calculate and plot average and SD
-sst_mean <- calc(sst_multi, fun = mean)
-sst_sd <- calc(sst_multi, fun = sd)
-plot(sst_mean, main = "Average SST")
-plot(sst_sd, main = "Standard deviation SST")
+swt_mean <- calc(swt_multi, fun = mean)
+swt_sd <- calc(swt_multi, fun = sd)
+plot(swt_mean, main = "Average Sea Water Potential Temperature (T)")
+plot(swt_sd, main = "Standard deviation")
 
 
 ## PART III-----PLOT WITH GGPLOT2-----------------------------------------------
@@ -90,21 +91,21 @@ countries <- ne_countries(scale = "medium", returnclass = "sf")
 
 
 # convert raster to data.frame
-sst_df <- as.data.frame(sst_mean, xy=TRUE, na.rm=TRUE)
+swt_df <- as.data.frame(swt_mean, xy=TRUE, na.rm=TRUE)
 # plot
 ggplot()+
   # add raster layer
-  geom_raster(aes(x=x, y=y, fill=layer), data=sst_df) +
+  geom_raster(aes(x=x, y=y, fill=layer), data=swt_df) +
   # define color palette of raster layer
-  scale_fill_distiller(palette = "Spectral", name = "SST (ºC)") + 
+  scale_fill_distiller(palette = "Spectral", name = "T (ºC)") + 
   # add countries layers
   geom_sf(fill=grey(0.9), color=grey(0.6), lwd = 0.2, data=countries) +
   # define spatial extent
-  coord_sf(xlim = range(sst_df$x), ylim = range(sst_df$y), expand = F, ndiscr = 500) +
+  coord_sf(xlim = range(swt_df$x), ylim = range(swt_df$y), expand = F, ndiscr = 500) +
   # add PA polygon
   geom_polygon(col = "navy", lwd = 0.6, alpha = 4/10, fill = "darkturquoise", data = mpa, aes(x = long, y = lat, group = group)) +
   # labels
-  labs(title = "Sea Surface Temperature (SST)",
+  labs(title = "Sea Water Potential Temperature (T)",
        subtitle = "Annual average estimated from monthly products for 2022",
        x = "Longitude",
        y = "Latitude") +
@@ -115,42 +116,42 @@ ggplot()+
 # plot with leaflet package
 library(leaflet)
 # create color palette for CMEMS maps
-palRaster <- colorNumeric("Spectral", domain = sst_mean@data@values, reverse = TRUE, na.color = "transparent")
+palRaster <- colorNumeric("Spectral", domain = swt_mean@data@values, reverse = TRUE, na.color = "transparent")
 # plot the boundary of MPA with a base map
 leaflet(mpa) %>% 
   # add base map
   addProviderTiles("Esri.OceanBasemap") %>%
   # add raster map
-  addRasterImage(sst_mean, colors = palRaster, opacity = 0.8) %>%
+  addRasterImage(swt_mean, colors = palRaster, opacity = 0.8) %>%
   # add legend
-  addLegend(pal = palRaster, values = values(sst_mean), title = "SST (ºC)") %>%
+  addLegend(pal = palRaster, values = values(swt_mean), title = "T (ºC)") %>%
   # add MPA boundary
   addPolygons(color = "blue")
 
 
 ### PART IV-----ZONAL STATISTICS EXTRACT MPA VALUES-----------------------------
 # mean
-mpa_sst_avg <- raster::extract(sst_multi, mpa, fun=mean, na.rm=T)
+mpa_swt_avg <- raster::extract(swt_multi, mpa, fun=mean, na.rm=T)
 # sd
-mpa_sst_sd <- extract(sst_multi, mpa, fun=sd, na.rm=T)
+mpa_swt_sd <- extract(swt_multi, mpa, fun=sd, na.rm=T)
 
 
 # convert to df
-mpa_sst <- data.frame(date = dates, sst_avg = c(mpa_sst_avg), sst_sd = c(mpa_sst_sd)) %>% print()
+mpa_swt <- data.frame(date = dates, swt_avg = c(mpa_sst_avg), swt_sd = c(mpa_swt_sd)) %>% print()
 # plot data
-ggplot(mpa_sst, aes(x = date)) +
+ggplot(mpa_swt, aes(x = date)) +
   # add ribbon to represent mean +- SD
-  geom_ribbon(aes(ymin = sst_avg-sst_sd, ymax = sst_avg+sst_sd),  alpha=.2, linetype=0, fill="steelblue") +
+  geom_ribbon(aes(ymin = swt_avg-swt_sd, ymax = swt_avg+swt_sd),  alpha=.2, linetype=0, fill="steelblue") +
   # add line to represent mean value
-  geom_line(aes(y = sst_avg), size = 1, color="steelblue") +
+  geom_line(aes(y = swt_avg), size = 1, color="steelblue") +
   # define frequency of x-axis and date labels
   scale_x_date(date_breaks = "1 month", date_labels = "%b") + # originally was "scale_x_datetime"
   # plot labels labels
-  labs(title = "Sea Surface Temperature (SST) in Cetacean Migration Corridor MPA",
+  labs(title = "Annual Average Sea Water Potential Temperature (T) in Cetacean Migration Corridor MPA",
        # note we use `expression()` to add +- symbol
        subtitle = expression(Monthly~values~(mean %+-% SD)~from~2022),
        x = "",
-       y = "SST (ºC)") +
+       y = "T (ºC)") +
   # theme
   theme_bw() 
 
